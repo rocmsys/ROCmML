@@ -1,0 +1,13 @@
+  - GDRCopy:
+    - name: autoconf
+      version: latest      
+    - name: automake
+      version: latest
+    - name: libtool
+      version: latest 
+    - name: libnuma-dev 
+      version: latest
+    - name: numactl
+      version: latest
+    - name: flex
+      version: latest

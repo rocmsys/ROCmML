@@ -164,6 +164,8 @@ dependencies:
   - namd:
     - req_file: namd.yml
     
+  - gromacs:
+    - req_file: gromacs.yml
 # Project description
 description: ROCm Machine Learning one-script installer xxxxxxxxxxxx xxxxxxxxxxxxxxxxxx xx xxxxxxxxxxxxxxxx 
 ...

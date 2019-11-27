@@ -474,3 +474,81 @@ function buildFromSource {
     done
     stopLoadBar
 }
+
+
+# Install GROMACS from Source
+# This should be removed once GROMACS support DEP & RPM package installation
+function installGROMACS {
+    local __cmd_ret_installGROMACS
+    local __retPath_installGROMACS=$(pwd)
+    local __cmd_array_installGROMACS=()
+    local __url_GROMACS_installGROMACS="https://github.com/reger-men/gromacs.git"
+    local __url_OpenMPI_installGROMACS="https://github.com/open-mpi/ompi.git -b v4.0.1"
+    local __url_GDRCOPY_installGROMACS="https://github.com/NVIDIA/gdrcopy.git -b v1.3"
+    local __url_UCX_installGROMACS="https://github.com/openucx/ucx.git -b v1.6.0"
+
+    local __inst_root_installMPI="/home/amd/work/vicky/GROMACS/RET/mpi_install"
+    local __inst_root_installGROMACS="$__inst_root_installMPI/gromacs"
+    local __inst_root_installOpenMPI="$__inst_root_installMPI/ompi"
+    local __inst_root_installGDRCOPY="$__inst_root_installMPI/gdr"
+    local __inst_root_installGDRCOPY_SRC="$__inst_root_installMPI/gdrcopy"
+    local __inst_root_installGDRCOPY_LIB="$__inst_root_installGDRCOPY/lib64"
+    local __inst_root_installGDRCOPY_INCLUDE="$__inst_root_installGDRCOPY/include"
+    local __inst_root_installUCX="$__inst_root_installMPI/ucx"
+
+    # Confirmation message
+    logPrint "STEP" "Build GROMACS"
+
+    # Set the ROCm binaries in PATH
+    __cmd_array_installGROMACS=("source /etc/profile.d/rocm.sh"); runCmd __cmd_array_installGROMACS "ERR"
+
+    # Clone GDRCPY #######################################################################################################
+    startLoadBar "Clone GDRCOPY Repository"
+
+    __cmd_array_installGROMACS=("su -p $SUDO_USER -c 'git clone ${__url_GDRCOPY_installGROMACS} $__inst_root_installGDRCOPY_SRC'")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+    stopLoadBar "Clone GDRCOPY Completed Successfully."    
+
+    # Build GDRCPY ##############################################################################################
+    startLoadBar "Build GDRCOPY"
+
+    __cmd_array_installGROMACS=("cd $__inst_root_installGDRCOPY_SRC && mkdir -p $__inst_root_installGDRCOPY_LIB $__inst_root_installGDRCOPY_INCLUDE")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+    __cmd_array_installGROMACS=("make PREFIX=$__inst_root_installGDRCOPY lib install && cd $__inst_root_installMPI")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+    stopLoadBar "Build GDRCOPY Completed Successfully."
+
+    # Build UCX ##############################################################################################
+    __cmd_array_installGROMACS=("cd $__inst_root_installUCX && ./autogen.sh" "mkdir build && cd build && ../contrib/configure-release --prefix=$__inst_root_installUCX --with-rocm=/opt/rocm --with-gdrcopy=$__inst_root_installGDRCOPY" "sudo make -j$(nproc) && sudo make -j$(nproc) install" "cd $__inst_root_installGROMACS")
+    buildFromSource "$__url_UCX_installGROMACS" "$__inst_root_installUCX" __cmd_array_installGROMACS "ucx" "ucx" "0"
+
+    # Build OMPI ##############################################################################################
+    __cmd_array_installGROMACS=("cd $__inst_root_installOpenMPI && ./autogen.pl && mkdir build && cd build && ../configure --prefix=$__inst_root_installOpenMPI/ompi --with-ucx=$__inst_root_install_UCX && sudo make -j\$(nproc) && sudo make -j\$(nproc) install && cd $__inst_root_installGROMACS")
+    #buildFromSource "$__url_OpenMPI_installGROMACS" "$__inst_root_installOpenMPI" __cmd_array_installGROMACS "ompi" "ompi" "0"
+
+    __cmd_array_installGROMACS=("echo 'export PATH=/opt/rh/devtoolset-7/root/usr/bin:/opt/rocm/hcc/bin:/opt/rocm/hip/bin:/opt/rocm/bin:/opt/rocm/hcc/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export MANPATH=/opt/rh/devtoolset-7/root/usr/share/man:\${MANPATH}' | tee -a /etc/profile.d/gromacs.sh && echo 'export INFOPATH=/opt/rh/devtoolset-7/root/usr/share/info\${INFOPATH:+:\${INFOPATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export PCP_DIR=/opt/rh/devtoolset-7/root' | tee -a /etc/profile.d/gromacs.sh && echo 'export PERL5LIB=/opt/rh/devtoolset-7/root//usr/lib64/perl5/vendor_perl:/opt/rh/devtoolset-7/root/usr/lib/perl5:/opt/rh/devtoolset-7/root//usr/share/perl5/' | tee -a /etc/profile.d/gromacs.sh && echo 'export LD_LIBRARY_PATH=/opt/rocm/lib:/usr/local/lib:/opt/rh/devtoolset-7/root\$rpmlibdir\$rpmlibdir32\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export PYTHONPATH=/opt/rh/devtoolset-7/root/usr/lib64/python\$pythonvers/site-packages:/opt/rh/devtoolset-7/root/usr/lib/pythoni\$pythonvers/' | tee -a /etc/profile.d/gromacs.sh && echo 'export LDFLAGS=-Wl,-rpath=/opt/rh/devtoolset-7/root/usr/lib64 -Wl,-rpath=/opt/rh/devtoolset-7/root/usr/lib' | tee -a /etc/profile.d/gromacs.sh && echo 'export PATH=$__inst_root_installOpenMPI/bin:/opt/rocm/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export CPLUS_INCLUDE_PATH=$__inst_root_installOpenMPI/include:\${CPLUS_INCLUDE_PATH:+:\${CPLUS_INCLUDE_PATH}}' | tee -a /etc/profile.d/gromacs.sh")
+
+    __cmd_array_installGROMACS=("source /etc/profile.d/gromacs.sh")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+    # Build GROMACS ##############################################################################################
+    #__cmd_array_installGROMACS=("cd $__inst_root_installGROMACS" "git checkout master" "mkdir build && cd build && cmake -DBUILD_SHARED_LIBS=ON -DGMX_BUILD_FOR_COVERAGE=on -DCMAKE_BUILD_TYPE=Release  -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpic++ -DGMX_MPI=on -DGMX_GPU=on -DGMX_OPENMP=on -DGMX_GPU_USE_AMD=on -DGMX_GPU_DETECTION_DONE=on   -DGMX_SIMD=AVX2_128   -DREGRESSIONTEST_DOWNLOAD=OFF -DCMAKE_PREFIX_PATH=/opt/rocm -DCMAKE_INSTALL_PREFIX=RET_GROMACS/no_mpi .." "sudo make -j$(nproc) && sudo make -j$(nproc) install" "cd $__inst_root_installGROMACS")
+    #buildFromSource "$__url_GROMACS_installGROMACS" "$__inst_root_installGROMACS" __cmd_array_installGROMACS "gromacs" "gromacs" "0"
+    __cmd_array_installGROMACS=("cd $__inst_root_installGROMACS")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+    __cmd_arry_installGRAMACS=("mkdir build && cd build && cmake -DBUILD_SHARED_LIBS=ON -DGMX_BUILD_FOR_COVERAGE=on -DCMAKE_BUILD_TYPE=Release  -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpic++ -DGMX_MPI=on -DGMX_GPU=on -DGMX_OPENMP=on -DGMX_GPU_USE_AMD=on -DGMX_GPU_DETECTION_DONE=on   -DGMX_SIMD=AVX2_128   -DREGRESSIONTEST_DOWNLOAD=OFF -DCMAKE_PREFIX_PATH=/opt/rocm -DCMAKE_INSTALL_PREFIX=RET_GROMACS/no_mpi .. && sudo make -j$(nproc) && sudo make -j$(nproc) install")
+    runCmd __cmd_array_installGROMACS "ERR"
+
+
+    ##################################################################################################################
+
+    # Back to the RET folder
+    cd "$__retPath_installGROMACS"
+
+    [ $? -ne 0 ] && stopLoadBar "There was a problem building GROMACS!" "ERR" "make" \
+                                       || stopLoadBar "Install Completed Successfully."
+}
