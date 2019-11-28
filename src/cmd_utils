@@ -482,12 +482,14 @@ function installGROMACS {
     local __cmd_ret_installGROMACS
     local __retPath_installGROMACS=$(pwd)
     local __cmd_array_installGROMACS=()
-    local __url_GROMACS_installGROMACS="https://github.com/reger-men/gromacs.git"
+    local __url_GROMACS_installGROMACS="http://gitlab1.amd.com/dc-hpc/gromacs-hip.git"
     local __url_OpenMPI_installGROMACS="https://github.com/open-mpi/ompi.git -b v4.0.1"
     local __url_GDRCOPY_installGROMACS="https://github.com/NVIDIA/gdrcopy.git -b v1.3"
     local __url_UCX_installGROMACS="https://github.com/openucx/ucx.git -b v1.6.0"
 
+    #local __inst_root_installMPI="$TEMP_DIRECTRORY/mpi_install"
     local __inst_root_installMPI="/home/amd/work/vicky/GROMACS/RET/mpi_install"
+
     local __inst_root_installGROMACS="$__inst_root_installMPI/gromacs"
     local __inst_root_installOpenMPI="$__inst_root_installMPI/ompi"
     local __inst_root_installGDRCOPY="$__inst_root_installMPI/gdr"
@@ -529,7 +531,7 @@ function installGROMACS {
     __cmd_array_installGROMACS=("cd $__inst_root_installOpenMPI && ./autogen.pl && mkdir build && cd build && ../configure --prefix=$__inst_root_installOpenMPI/ompi --with-ucx=$__inst_root_install_UCX && sudo make -j\$(nproc) && sudo make -j\$(nproc) install && cd $__inst_root_installGROMACS")
     #buildFromSource "$__url_OpenMPI_installGROMACS" "$__inst_root_installOpenMPI" __cmd_array_installGROMACS "ompi" "ompi" "0"
 
-    __cmd_array_installGROMACS=("echo 'export PATH=/opt/rh/devtoolset-7/root/usr/bin:/opt/rocm/hcc/bin:/opt/rocm/hip/bin:/opt/rocm/bin:/opt/rocm/hcc/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export MANPATH=/opt/rh/devtoolset-7/root/usr/share/man:\${MANPATH}' | tee -a /etc/profile.d/gromacs.sh && echo 'export INFOPATH=/opt/rh/devtoolset-7/root/usr/share/info\${INFOPATH:+:\${INFOPATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export PCP_DIR=/opt/rh/devtoolset-7/root' | tee -a /etc/profile.d/gromacs.sh && echo 'export PERL5LIB=/opt/rh/devtoolset-7/root//usr/lib64/perl5/vendor_perl:/opt/rh/devtoolset-7/root/usr/lib/perl5:/opt/rh/devtoolset-7/root//usr/share/perl5/' | tee -a /etc/profile.d/gromacs.sh && echo 'export LD_LIBRARY_PATH=/opt/rocm/lib:/usr/local/lib:/opt/rh/devtoolset-7/root\$rpmlibdir\$rpmlibdir32\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export PYTHONPATH=/opt/rh/devtoolset-7/root/usr/lib64/python\$pythonvers/site-packages:/opt/rh/devtoolset-7/root/usr/lib/pythoni\$pythonvers/' | tee -a /etc/profile.d/gromacs.sh && echo 'export LDFLAGS=-Wl,-rpath=/opt/rh/devtoolset-7/root/usr/lib64 -Wl,-rpath=/opt/rh/devtoolset-7/root/usr/lib' | tee -a /etc/profile.d/gromacs.sh && echo 'export PATH=$__inst_root_installOpenMPI/bin:/opt/rocm/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export CPLUS_INCLUDE_PATH=$__inst_root_installOpenMPI/include:\${CPLUS_INCLUDE_PATH:+:\${CPLUS_INCLUDE_PATH}}' | tee -a /etc/profile.d/gromacs.sh")
+    __cmd_array_installGROMACS=("echo 'export PATH=$ROCM_PATH/hcc/bin:$ROCM_PATH/hip/bin:$ROCM_PATH/bin:$ROCM_PATH/hcc/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export LD_LIBRARY_PATH=$ROCM_PATH/lib:/usr/local/lib:\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export PATH=$__inst_root_installOpenMPI/bin:$ROCM_PATH/bin:\${PATH:+:\${PATH}}' | tee -a /etc/profile.d/gromacs.sh && echo 'export CPLUS_INCLUDE_PATH=$__inst_root_installOpenMPI/include:\${CPLUS_INCLUDE_PATH:+:\${CPLUS_INCLUDE_PATH}}' | tee -a /etc/profile.d/gromacs.sh")
 
     __cmd_array_installGROMACS=("source /etc/profile.d/gromacs.sh")
     runCmd __cmd_array_installGROMACS "ERR"
