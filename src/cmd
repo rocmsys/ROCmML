@@ -137,7 +137,7 @@ function parseArgs {
             ;;
 
             # Set Packages ########################################################################
-            "rocm" | "tensorflow" | "pytorch" | "namd")
+            "rocm" | "tensorflow" | "pytorch" | "namd" | "gromacs")
                 # Permitted commands: install, remove and update
                 if [[ ! "$__cmd_parseArgs" =~ ^("install"|"update"|"remove"|"benchmark")$ ]]; then logPrint "ERR" "Wrong command! Did you mean: $0 install $__arg_parseArgs"; exit; fi
                 if [[ "$__arg_parseArgs" =~ ^("tensorflow"|"pytorch")$ ]]; then 
@@ -146,6 +146,7 @@ function parseArgs {
                 fi
 
                 [[ "$__arg_parseArgs" = "namd" ]] && { __arg_parseArgs="$__arg_parseArgs:src"; __isROCmRequired_parseArgs=0; }
+		[[ "$__arg_parseArgs" = "gromacs" ]] && { __arg_parseArgs="$__arg_parseArgs:src"; __isROCmRequired_parseArgs=0; }
                 __pkgs_parseArgs+=("$__arg_parseArgs");
               shift
             ;;
@@ -295,6 +296,9 @@ function runInstall {
                 ;;
                 namd)
                     installNAMD;
+                ;;
+		gromacs)
+                    installGROMACS;
                 ;;
             esac
 
