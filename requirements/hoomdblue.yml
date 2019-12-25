@@ -1,0 +1,25 @@
+# This file contains only dependencies required by HOOMD-Blue
+---
+- name: hipsparse
+  version: latest
+- name: rocfft
+  version: latest
+- name: hipcub
+  version: latest
+- name: rocrand
+  version: latest
+- name: rocthrust
+  version: latest
+- name: roctracer-dev
+  version: latest
+
+# Define here Ubuntu Packages
+- Ubuntu:
+  - name: python3-dev
+    version: latest
+
+# Define here CentOS Packages
+- CentOS:
+  - name: python36-devel
+    version: latest
+...
