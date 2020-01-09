@@ -29,6 +29,7 @@ function printUsage {
     echo -e "    [pytorch]                          ${FG_LIGHT_BLUE}: Pytorch Framework${END}"
     echo -e ""
     echo -e "${BOLD}HPC Package:${END}"
+    echo -e "    [hoomdblue]                        ${FG_LIGHT_BLUE}: HOOMD-Blue is a general-purpose particle simulation toolkit. http://glotzerlab.engin.umich.edu/hoomd-blue/ ${END}"
     echo -e "    [namd]                             ${FG_LIGHT_BLUE}: NAMD HPC Application${END}"
     echo -e ""
     echo -e "${BOLD}Container:${END}"
@@ -137,7 +138,7 @@ function parseArgs {
             ;;
 
             # Set Packages ########################################################################
-            "rocm" | "tensorflow" | "pytorch" | "namd")
+            "rocm" | "tensorflow" | "pytorch" | "namd" | "hoomdblue" )
                 # Permitted commands: install, remove and update
                 if [[ ! "$__cmd_parseArgs" =~ ^("install"|"update"|"remove"|"benchmark")$ ]]; then logPrint "ERR" "Wrong command! Did you mean: $0 install $__arg_parseArgs"; exit; fi
                 if [[ "$__arg_parseArgs" =~ ^("tensorflow"|"pytorch")$ ]]; then 
@@ -146,6 +147,7 @@ function parseArgs {
                 fi
 
                 [[ "$__arg_parseArgs" = "namd" ]] && { __arg_parseArgs="$__arg_parseArgs:src"; __isROCmRequired_parseArgs=0; }
+                [[ "$__arg_parseArgs" = "hoomdblue" ]] && { __arg_parseArgs="$__arg_parseArgs:src"; __isROCmRequired_parseArgs=0; }
                 __pkgs_parseArgs+=("$__arg_parseArgs");
               shift
             ;;
@@ -252,6 +254,9 @@ function installCmd {
             namd*)
                 __cmd_array_installCmd=("source /etc/profile.d/namd.sh"); runCmd __cmd_array_installCmd "ERR" 0
             ;;
+            hoomdblue*)
+                __cmd_array_installCmd=("source /etc/profile.d/hoomdblue.sh"); runCmd __cmd_array_installCmd "ERR" 0
+            ;;
 	    esac
         # Install Package
         runInstall "$pkg"
@@ -295,6 +300,9 @@ function runInstall {
                 ;;
                 namd)
                     installNAMD;
+                ;;
+                hoomdblue)
+                    installHOOMDBlue;
                 ;;
             esac
 
@@ -376,7 +384,7 @@ function runPreInstallation {
             local __docker_pkg_runPreInstallation=("docker-*"); removePkg __docker_pkg_runPreInstallation
         ;;
 
-        py2 | py3 | singularity | namd)
+        py2 | py3 | singularity | namd | hoomdblue )
             PRE="DONOTHING"
         ;;
     esac
@@ -426,6 +434,9 @@ function runPostInstallation {
             addPATH "namd" "$PWD/../RET_NAMD"
             stopLoadBar
         ;;
+        hoomdblue)
+            POST="DONOTHING"
+        ;;
     esac
 }
 
@@ -473,6 +484,17 @@ function runVerification {
 
         namd)
             namdVerification
+            return "$?";
+        ;;
+        hoomdblue)
+            HOOMD_HEADER="${HOME}/miniconda3/lib/python3.8/site-packages/hoomd/include/HOOMDVersion.h"
+            if [ ! -f "${HOOMD_HEADER}" ]; then
+                return 7;
+            fi
+            #__py_vers_runVerification=$(su -p $SUDO_USER -c "source /etc/profile.d/hoomdblue.sh source /etc/profile.d/mpi.sh && ${HOME}/miniconda3/bin/python3 -c 'import hoomd; print(hoomd.__version__)' 2>&1 | tail -1")
+	    __py_vers_runVerification=$(grep "HOOMD_VERSION " ${HOOMD_HEADER} | sed 's/.*HOOMD_VERSION "\(.*\)"/\1/')
+            logPrint "NOTE" "The current HOOMD-Blue version is: $__py_vers_runVerification"
+            hoomdblueVerification
             return "$?";
         ;;
     esac
@@ -577,5 +599,10 @@ function runBenchmark {
             namdBenchmark
             return "$?";
         ;;
+        hoomdblue)
+            hoomdblueBenchmark
+            return "$?";
+        ;;
     esac
 }
+

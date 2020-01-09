@@ -58,7 +58,7 @@ function addDockerRepo {
     stopLoadBar
 }
 
-# Verify if ROCm installation was successful 
+# Verify if ROCm installation was successful
 function rocmVerification {
     local __cmd_ret_rocmVerification
     local __cmd_rocmVerification="/opt/rocm/bin/rocminfo"
@@ -130,6 +130,17 @@ function namdVerification {
     fi
 }
 
+# Verify if HOOMD-Blue installation was successful
+function hoomdblueVerification {
+    if (confirmYn "Run HOOMD-Blue benchmark? [Y/n] "); then
+        startLoadBar "Run HOOMD-Blue Verification"; printf '\n'
+        runBenchmark "hoomdblue" EMPTY_ARRAY
+        stopLoadBar
+        return "$?"
+    fi
+    return 0;
+}
+
 # Run TensorFlow benchmark
 function tfBenchmark {
     local -n __models_tfBenchmark=$1
@@ -178,6 +189,33 @@ function namdBenchmark {
     runCmd __cmd_array_namdBenchmark "ERR" 0 && stopLoadBar "APOA1 STMV benchmark Done" || { stopLoadBar "APOA1 STMV benchmark Failed" "ERR"; __ret_value_namdBenchmark=1; }
 
     return $__ret_value_namdBenchmark;    
+}
+
+# Run HOOMD-Blue benchmark
+function hoomdblueBenchmark {
+    local __url_hoomdblueBenchmark="https://jglaser@github.com/glotzerlab/hoomd-benchmarks.git"
+    local __cmd_array_hoomdblueBenchmark=()
+    local __cmd_python_hoomdblueBenchmark="${HOME}/miniconda3/bin/python3"
+    local __ret_value_hoomdblueBenchmark=0
+
+    if [ ! -d "$WORK_DIRECTRORY/hoomd-benchmarks" ]; then
+        __cmd_array_hoomdblueBenchmark=("su -p $SUDO_USER -c 'git clone $__url_hoomdblueBenchmark $WORK_DIRECTRORY/hoomd-benchmarks && cd $WORK_DIRECTRORY/hoomd-benchmarks && git checkout next'"); runCmd __cmd_array_hoomdblueBenchmark "ERR"
+    fi
+
+    # Run the benchmark
+    startLoadBar "Run LJ Liquid 1M particles - Single Precision"; printf '\n'
+
+    SOURCE_FILES=""
+    if [ -f /etc/profile.d/hooomdblue.sh ]; then
+        SOURCE_FILES+="source /etc/profile.d/hoomdblue.sh && "
+    fi
+    if [ -f /etc/profile.d/mpi.sh ]; then
+        SOURCE_FILES+="source /etc/profile.d/mpi.sh && "
+    fi
+    __cmd_array_hoomdblueBenchmark=("su -p $SUDO_USER -c '$SOURCE_FILES cd $WORK_DIRECTRORY/hoomd-benchmarks && $__cmd_python_hoomdblueBenchmark ./project.py run lj_liquid-benchmark-gpu_np1'"); runCmd __cmd_array_hoomdblueBenchmark "ERR"
+    runCmd __cmd_array_hoomdblueBenchmark "ERR" 0 && stopLoadBar "LJ Liquid 1M particles benchmark Done" || { stopLoadBar "LJ Liquid 1M particules benchmark Failed" "ERR"; __ret_value_hoomdblueBenchmark=1; }
+
+    return $__ret_value_hoomdblueBenchmark;
 }
 
 # Build Package Array by key and check if packages already installed
@@ -426,6 +464,111 @@ function installNAMD {
                                        || stopLoadBar "Install Completed Successfully."
 }
 
+# Install HOOMD-Blue from Source
+# This should be removed once HOOMD-Blue support DEP & RPM package installation
+function installHOOMDBlue {
+    local __cmd_ret_installHOOMDBlue
+    local __retPath_installHOOMDBlue="${HOME}/miniconda3/lib/python3.8/site-packages/hoomd"
+    local __cmd_array_installHOOMDBlue=()
+    local __url_HOOMDBlue_installHOOMDBlue="https://github.com/glotzerlab/hoomd-blue.git"
+    local __url_Miniconda_installHOOMDBlue="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+
+    local __nProc_installHOOMDBlue=`grep -c ^processor /proc/cpuinfo`
+    local __inst_root_installHOOMDBlue="$TEMP_DIRECTRORY/hoomdblue"
+    local __inst_root_installMiniconda="$TEMP_DIRECTRORY/miniconda"
+
+    # Confirmation message
+    logPrint "STEP" "Build HOOMD-Blue"
+
+    # Set the ROCm binaries in PATH
+    __cmd_array_installHOOMDBlue=("source /etc/profile.d/rocm.sh"); runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    # Install MPI ############*######################################################################################
+    #installMPI
+
+    # Build Miniconda3 ##############################################################################################
+    startLoadBar "Miniconda3 install"
+
+    CONDA="${HOME}/miniconda3/bin/conda"
+    CONDA_PREFIX="${HOME}/miniconda3"
+    if [ -d "${CONDA_PREFIX}" ]; then
+        if (confirmYn "Remove previous Miniconda3 install at ${HOME}/miniconda3? [Y/n] "); then
+            startLoadBar "Removing Miniconda3 at ${HOME}/miniconda3"; printf '\n'
+            __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'rm -fr ${HOME}/miniconda3'")
+            runCmd __cmd_array_installHOOMDBlue "ERR"
+            stopLoadBar
+        fi
+    fi
+
+    logPrint "STEP" "Miniconda3 download"
+
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'mkdir -p $__inst_root_installMiniconda; cp $HOME/Miniconda3-latest-Linux-x86_64.sh $__inst_root_installMiniconda/Miniconda3-latest-Linux-x86_64.sh'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+    #__cmd_array_installHOOMDBlue=("wget --progress=dot -P $__inst_root_installMiniconda $__url_Miniconda_installHOOMDBlue")
+    #runCmd __cmd_array_installHOOMDBlue "ERR" "1" "Download Miniconda3" "0"
+
+    export PATH="${HOME}/miniconda3/bin:${HOME}/miniconda3/bin:${PATH}"
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'sh $__inst_root_installMiniconda/Miniconda3-latest-Linux-x86_64.sh -b -u && $CONDA init'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    __cmd_array_installHOOMDBlue=("su -l -p $SUDO_USER -c '$CONDA install -y -c anaconda python=3.8'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+    __cmd_array_installHOOMDBlue=("su -l -p $SUDO_USER -c '$CONDA update -y --all'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    logPrint "STEP" "Miniconda3 installing cmake, numpy, pybind11, eigen, cereal, signac-flow"
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c '$CONDA install -y cmake numpy pybind11 eigen && $CONDA install -y -c conda-forge cereal signac-flow'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    __cmd_array_installHOOMDBlue=("echo 'export CMAKE_PREFIX_PATH=$CONDA_PREFIX' >> ${HOME}/.bashrc")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    stopLoadBar "Miniconda3 install completed successfully."
+
+    # Clone HOOMDBlue #######################################################################################################
+    startLoadBar "Clone HOOMD-Blue repository"
+
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c \"git clone ${__url_HOOMDBlue_installHOOMDBlue} $__inst_root_installHOOMDBlue && cd $__inst_root_installHOOMDBlue && git checkout next && git submodule update --init"\")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    stopLoadBar "Clone HOOMD-Blue completed successfully."
+
+    # Build the HOOMDBlue ###############################################################################################
+    startLoadBar "Build HOOMD-Blue"
+
+    if [ -d "$__inst_root_installHOOMDBlue/build" ]; then
+        __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'rm -fr $__inst_root_installHOOMDBlue/build'")
+        runCmd __cmd_array_installHOOMDBlue "ERR"
+    fi
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'mkdir $__inst_root_installHOOMDBlue/build'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    CMAKE_CMD="cmake "
+    CMAKE_CMD+="-DPYTHON_EXECUTABLE=${HOME}/miniconda3/bin/python3 "
+    CMAKE_CMD+="-DENABLE_GPU=ON -DSINGLE_PRECISION=ON "
+    CMAKE_CMD+="-DENABLE_MPI=ON "
+    #CMAKE_CMD+="-D ENABLE_MPI_CUDA=ON " # Turn ON for ROCm-enabled MPI
+    CMAKE_CMD+="-DCMAKE_INSTALL_PREFIX=${HOME}/miniconda3 "
+    CMAKE_CMD+="-DPYTHON_SITE_INSTALL_DIR=${HOME}/miniconda3/lib/python3.8/site-packages/hoomd "
+    CMAKE_CMD+="-DCMAKE_PREFIX_PATH=${HOME}/miniconda3 "
+    CMAKE_CMD+="-B $__inst_root_installHOOMDBlue/build $__inst_root_installHOOMDBlue "
+
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'source ~/.bashrc && cd $__inst_root_installHOOMDBlue/build && $CMAKE_CMD'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    __cmd_array_installHOOMDBlue=("su -p $SUDO_USER -c 'source ~/.bashrc && cd $__inst_root_installHOOMDBlue/build && make install -j$__nProc_installHOOMDBlue'")
+    runCmd __cmd_array_installHOOMDBlue "ERR"
+
+    stopLoadBar "Build HOOMD-Blue completed successfully."
+
+    ##################################################################################################################
+
+    # Back to the RET folder
+    cd "$__retPath_installHOOMDBlue"
+
+    [ $? -ne 0 ] && stopLoadBar "There was a problem building HOOMD-Blue!" "ERR" "make" \
+                                       || stopLoadBar "Install Completed Successfully."
+}
 
 # Build Package with cmake
 # Input $1: source code url
